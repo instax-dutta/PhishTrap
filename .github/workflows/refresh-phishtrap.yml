@@ -19,6 +19,10 @@ on:
 env:
   HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
+concurrency:
+  group: phishtrap-refresh
+  cancel-in-progress: false
+
 jobs:
   refresh:
     runs-on: ubuntu-latest

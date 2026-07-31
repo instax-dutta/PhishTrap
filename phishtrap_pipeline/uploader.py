@@ -1,5 +1,7 @@
+import json
 import logging
 import shutil
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -10,8 +12,10 @@ from phishtrap_pipeline.builder import validate_dataset
 
 logger = logging.getLogger(__name__)
 
+UPLOAD_RETRIES = 3
 
-def _save_splits(splits, output_dir):
+
+def _save_splits(splits, output_dir, metadata=None):
     output_dir = Path(output_dir)
     if output_dir.exists():
         shutil.rmtree(output_dir)
@@ -31,28 +35,44 @@ def _save_splits(splits, output_dir):
     full.to_parquet(output_dir / "phishtrap_full.parquet", index=False)
     logger.info("Saved full dataset: %d rows", len(full))
 
+    if metadata:
+        with open(output_dir / "dataset_info.json", "w") as f:
+            json.dump(metadata, f, indent=2)
+        logger.info("Saved dataset_info.json")
 
-def upload_dataset(splits, output_dir):
+
+def upload_dataset(splits, output_dir, metadata=None, max_retries=UPLOAD_RETRIES):
     token = get_hf_token()
     api = HfApi(token=token)
 
-    _save_splits(splits, output_dir)
+    _save_splits(splits, output_dir, metadata=metadata)
 
     logger.info("Ensuring repo %s exists...", REPO_ID)
     api.create_repo(repo_id=REPO_ID, repo_type="dataset", exist_ok=True)
 
-    logger.info("Uploading data/ folder to %s...", REPO_ID)
-    upload_folder(
-        folder_path=str(output_dir),
-        repo_id=REPO_ID,
-        repo_type="dataset",
-        token=token,
-        path_in_repo="data",
-    )
-
-    repo_url = f"https://huggingface.co/datasets/{REPO_ID}"
-    logger.info("Upload complete: %s", repo_url)
-    return repo_url
+    last_exc = None
+    for attempt in range(max_retries):
+        try:
+            logger.info(
+                "Uploading data/ folder to %s (attempt %d/%d)...",
+                REPO_ID, attempt + 1, max_retries,
+            )
+            upload_folder(
+                folder_path=str(output_dir),
+                repo_id=REPO_ID,
+                repo_type="dataset",
+                token=token,
+                path_in_repo="data",
+            )
+            repo_url = f"https://huggingface.co/datasets/{REPO_ID}"
+            logger.info("Upload complete: %s", repo_url)
+            return repo_url
+        except Exception as e:
+            last_exc = e
+            logger.error("Upload attempt %d/%d failed: %s", attempt + 1, max_retries, e)
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+    raise last_exc
 
 
 def verify_upload(repo_id=None):
@@ -65,6 +85,8 @@ def verify_upload(repo_id=None):
         required = [
             "data/train.csv", "data/val.csv", "data/test.csv",
             "data/train.parquet", "data/val.parquet", "data/test.parquet",
+            "data/phishtrap_full.csv", "data/phishtrap_full.parquet",
+            "data/dataset_info.json",
         ]
         for f in required:
             if f not in files:

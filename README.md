@@ -20,9 +20,11 @@ size_categories:
 
 <br>
 
-> Catch phishing URLs before they catch you — 16 features, 19,954 URLs, balanced 50/50. Cross-verified from 496K phishing domains + Tranco top 10K.
+> Catch phishing URLs before they catch you — 16 features, 19,954 URLs, balanced 50/50. Cross-verified from 496K phishing domains + Tranco top 10K. Automatically refreshed every 6 hours.
 
 Priorities: **Quality > Ease of Access > Quantity**
+
+**Build pipeline (open source):** [github.com/instax-dutta/PhishTrap](https://github.com/instax-dutta/PhishTrap) — see how every row is fetched, merged, deduplicated, validated and published.
 
 ---
 
@@ -138,7 +140,7 @@ print(df.head())
 
 ## Auto-Update Pipeline
 
-PhishTrap is continuously refreshed by an automated pipeline. The dataset is rebuilt every 6 hours with fresh phishing URLs from live feeds.
+PhishTrap is continuously refreshed by an automated pipeline. The dataset is rebuilt every 6 hours with fresh phishing URLs from live feeds. The full pipeline is open source at [github.com/instax-dutta/PhishTrap](https://github.com/instax-dutta/PhishTrap).
 
 ### Architecture
 
@@ -147,18 +149,25 @@ GitHub Actions (cron, every 6h)
   │
   ├─ 1. Fetch phishing URLs  ── OpenPhish (15-min feed) + Phishing.Database + PhishStats
   ├─ 2. Fetch legit domains  ── Tranco top 10K
-  ├─ 3. Merge with existing   ── dedup by URL, preserve provenance (source column)
-  ├─ 4. Extract 16 features   ── same feature set across all versions
-  ├─ 5. Rebalance 50/50       ── stratified sampling
-  ├─ 6. Split 70/15/15        ── train/val/test
-  └─ 7. Validate + upload     ── pre-upload gates + post-upload verification → Hugging Face
+  ├─ 3. Merge with existing   ── canonical dedup (scheme/port/trailing-slash agnostic)
+  ├─ 4. Prune expired         ── phishing URLs unconfirmed > 60 days are dropped
+  ├─ 5. Extract 16 features   ── same feature set across all versions
+  ├─ 6. Rebalance 50/50       ── stratified sampling
+  ├─ 7. Split 70/15/15        ── train/val/test
+  └─ 8. Validate + upload     ── pre-upload gates + post-upload verification → Hugging Face
 ```
 
-### Safety guarantees
+### Quality guarantees
 
+- **Freshness tracking** — every row carries `first_seen`, `last_seen`, and `collected_at` timestamps; consumers can tell how current each URL is
+- **Canonical dedup** — `http://evil.com`, `https://evil.com/`, and `http://evil.com:80` collapse into one row via the `canonical_url` column
+- **New evidence wins** — if a legitimate Tranco domain later appears in phishing feeds (e.g. it got compromised), the phishing label overrides it; label conflicts are logged
+- **Expiry pruning** — phishing URLs unconfirmed for more than 60 days are removed automatically; legitimate domains never expire (Tranco top-10K is stable by design)
+- **Provenance preserved** — the `source` column records every feed that reported a URL (e.g. `openphish+phishing_database`)
 - **Source resilience** — 3 retries with exponential backoff per fetch; an unreachable source is skipped, never fatal
 - **Pre-upload validation** — every split is checked for missing features, NaN/inf values, duplicates, and class balance before anything is uploaded
 - **Post-upload verification** — after pushing, the pipeline downloads the uploaded files and re-validates them
+- **Build metadata** — `data/dataset_info.json` records build ID, date, class/source distributions, and schema version
 - **No partial state** — the full `data/` folder is replaced atomically per run
 
 ### Running the pipeline
@@ -168,6 +177,7 @@ export HF_TOKEN=hf_xxx          # required, from HF account settings
 python run_pipeline.py          # incremental refresh
 python run_pipeline.py --force-full    # rebuild from scratch
 python run_pipeline.py --max-samples 20000   # bigger dataset
+python run_pipeline.py --dry-run       # fetch/merge/prune/rebalance, no upload
 ```
 
 ### Manual trigger

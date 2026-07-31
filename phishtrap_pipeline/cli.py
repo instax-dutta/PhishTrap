@@ -15,4 +15,9 @@ def parse_args(argv=None):
         default=10000,
         help="Max total samples per class (default 10000)",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Fetch, merge, prune, rebalance but do not upload",
+    )
     return parser.parse_args(argv)

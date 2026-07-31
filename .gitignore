@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+*.onnx
+*.pkl
+*.joblib

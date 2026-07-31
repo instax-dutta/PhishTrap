@@ -1,0 +1,6 @@
+pandas>=2.0.0
+numpy>=1.24.0
+requests>=2.31.0
+huggingface_hub>=0.20.0
+tld>=0.13
+pyarrow>=14.0.0

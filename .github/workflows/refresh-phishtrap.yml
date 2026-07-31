@@ -1,0 +1,55 @@
+name: Refresh PhishTrap Dataset
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      force_full:
+        description: 'Force full rebuild from scratch'
+        required: false
+        type: boolean
+        default: false
+      max_samples:
+        description: 'Max samples per class'
+        required: false
+        type: number
+        default: 10000
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run PhishTrap pipeline
+        run: |
+          ARGS=""
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            if [[ "${{ github.event.inputs.force_full }}" == "true" ]]; then
+              ARGS="$ARGS --force-full"
+            fi
+            ARGS="$ARGS --max-samples ${{ github.event.inputs.max_samples }}"
+          fi
+          python run_pipeline.py $ARGS
+
+      - name: Verify upload
+        run: |
+          python - <<'EOF'
+          from phishtrap_pipeline.uploader import verify_upload
+          assert verify_upload(), 'Post-upload verification failed'
+          print('Verification passed')
+          EOF

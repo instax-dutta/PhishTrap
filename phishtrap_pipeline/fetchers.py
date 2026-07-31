@@ -53,19 +53,34 @@ def fetch_openphish():
     return urls
 
 
-def fetch_phishstats():
-    text = fetch_url("https://phishstats.info/phish.csv")
+def fetch_phishstats(max_pages=4):
     urls = set()
-    for line in text.strip().splitlines():
-        line = line.strip().lower()
-        if not line or line.startswith("#"):
-            continue
-        parts = line.split(",")
-        if len(parts) >= 4:
-            url = parts[3].strip().strip('"')
-            if url:
-                urls.add(url)
+    base = "https://api.phishstats.info/api/phishing"
+    for page in range(1, max_pages + 1):
+        try:
+            text = fetch_url(f"{base}?_sort=-id&_p={page}&_size=100", retries=2)
+            records = _parse_phishstats_json(text)
+            if not records:
+                break
+            for record in records:
+                url = (record.get("url") or "").strip().lower()
+                if url:
+                    urls.add(url)
+        except Exception as e:
+            logger.warning("PhishStats page %d failed: %s", page, e)
+            break
     return urls
+
+
+def _parse_phishstats_json(text):
+    import json
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(data, list):
+        return []
+    return data
 
 
 def fetch_tranco(limit=10000):

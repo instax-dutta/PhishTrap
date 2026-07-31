@@ -59,13 +59,53 @@ def test_fetch_tranco():
 
 
 @responses.activate
+def test_fetch_phishstats_json():
+    payload = '{"error": "boom"}'
+    responses.add(
+        responses.GET, "https://api.phishstats.info/api/phishing?_sort=-id&_p=1&_size=100",
+        body=payload, status=200,
+    )
+    urls = fetchers.fetch_phishstats(max_pages=1)
+    assert urls == set()
+
+
+@responses.activate
+def test_fetch_phishstats_parses_records():
+    payload = '[{"id":1,"url":"http://evil1.com/x"},{"id":2,"url":"http://evil2.com/y"},{"id":3,"url":null}]'
+    responses.add(
+        responses.GET, "https://api.phishstats.info/api/phishing?_sort=-id&_p=1&_size=100",
+        body=payload, status=200,
+    )
+    urls = fetchers.fetch_phishstats(max_pages=1)
+    assert urls == {"http://evil1.com/x", "http://evil2.com/y"}
+
+
+@responses.activate
+def test_fetch_phishstats_stops_on_empty_page():
+    payload = "[]"
+    responses.add(
+        responses.GET, "https://api.phishstats.info/api/phishing?_sort=-id&_p=1&_size=100",
+        body=payload, status=200,
+    )
+    responses.add(
+        responses.GET, "https://api.phishstats.info/api/phishing?_sort=-id&_p=2&_size=100",
+        body=payload, status=200,
+    )
+    urls = fetchers.fetch_phishstats(max_pages=2)
+    assert urls == set()
+
+
+@responses.activate
 def test_fetch_all_sources_partial_failure():
     responses.add(
         responses.GET, "https://phish.co.za/latest/ALL-phishing-domains.lst",
         body="evil.com\n", status=200,
     )
     responses.add(responses.GET, "https://openphish.com/feed.txt", status=500)
-    responses.add(responses.GET, "https://phishstats.info/phish.csv", status=500)
+    responses.add(
+        responses.GET, "https://api.phishstats.info/api/phishing?_sort=-id&_p=1&_size=100",
+        status=500,
+    )
     responses.add(
         responses.GET, "https://tranco-list.eu/download/Y8VQG/10000",
         body="1,good.com\n", status=200,

@@ -70,8 +70,8 @@ def main():
     logger.info("Total legit URLs: %d", len(legit_urls))
 
     logger.info("Step 2: Extracting features...")
-    phishing_rows = extract_url_features(phishing_urls, label=1, source="live_feed")
-    legit_rows = extract_url_features(legit_urls, label=0, source="tranco")
+    phishing_rows = extract_url_features(phishing_urls, label=1, source_tag="live_feed")
+    legit_rows = extract_url_features(legit_urls, label=0, source_tag="tranco")
     logger.info("Phishing rows: %d, Legit rows: %d", len(phishing_rows), len(legit_rows))
 
     if not phishing_rows or not legit_rows:

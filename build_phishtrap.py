@@ -21,7 +21,9 @@ SEED = 42
 random.seed(SEED)
 np.random.seed(SEED)
 
-HF_TOKEN = "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"
+HF_TOKEN = os.environ.get("HF_TOKEN")
+if not HF_TOKEN:
+    raise RuntimeError("HF_TOKEN environment variable not set")
 HF_USER = "saidutta69"
 DATASET_NAME = "PhishTrap"
 

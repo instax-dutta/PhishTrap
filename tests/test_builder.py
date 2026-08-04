@@ -80,6 +80,12 @@ class TestValidateDataset:
         with pytest.raises(DatasetValidationError):
             validate_dataset(df)
 
+    def test_imbalanced_classes_passes_when_require_balance_false(self):
+        df = _make_valid_df()
+        df["label"] = 0
+        df.iloc[0, df.columns.get_loc("label")] = 1
+        validate_dataset(df, require_balance=False)
+
     def test_duplicate_canonical_urls_raises(self):
         df = _make_valid_df()
         df = pd.concat([df, df.iloc[[0]]], ignore_index=True)
@@ -286,3 +292,29 @@ class TestSplitDataset:
         assert train_urls.isdisjoint(val_urls)
         assert train_urls.isdisjoint(test_urls)
         assert val_urls.isdisjoint(test_urls)
+
+    def test_every_split_balanced_small_odd_sizes(self):
+        df = _make_valid_df(957)
+        df["label"] = [1] * 500 + [0] * 457
+        splits = split_dataset(df)
+        for name, split_df in splits.items():
+            counts = split_df["label"].value_counts()
+            assert len(counts) == 2
+            ratio = min(counts) / max(counts)
+            assert 0.9 <= ratio <= 1.1, (name, counts.to_dict())
+
+    def test_balanced_regardless_of_row_order(self):
+        df = _make_valid_df(1000)
+        df["label"] = [1] * 500 + [0] * 500
+        shuffled = df.sample(frac=1, random_state=123).reset_index(drop=True)
+        a = split_dataset(df)
+        b = split_dataset(shuffled)
+        for name in ("train", "val", "test"):
+            ca = a[name]["label"].value_counts().to_dict()
+            cb = b[name]["label"].value_counts().to_dict()
+            assert sorted(ca.values()) == sorted(cb.values()), (name, ca, cb)
+
+    def test_does_not_raise_on_tiny_dataset(self):
+        df = _make_valid_df(10)
+        splits = split_dataset(df)
+        assert len(splits["train"]) + len(splits["val"]) + len(splits["test"]) == 10

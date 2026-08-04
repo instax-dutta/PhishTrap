@@ -96,6 +96,55 @@ def test_fetch_phishstats_stops_on_empty_page():
 
 
 @responses.activate
+def test_fetch_url_uses_fallback_mirror():
+    responses.add(
+        responses.GET, "https://primary.example/feed.txt",
+        body="500\n" * 3, status=500,
+    )
+    responses.add(
+        responses.GET, "https://mirror.example/feed.txt",
+        body="evil.com\n", status=200,
+    )
+    text = fetchers.fetch_url(
+        "https://primary.example/feed.txt",
+        retries=2,
+        fallbacks=["https://mirror.example/feed.txt"],
+    )
+    assert "evil.com" in text
+
+
+@responses.activate
+def test_fetch_url_falls_back_to_github_mirror_for_phish_database():
+    responses.add(
+        responses.GET,
+        "https://phish.co.za/latest/ALL-phishing-domains.lst",
+        status=503,
+    )
+    responses.add(
+        responses.GET,
+        "https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-domains-ACTIVE.txt",
+        body="evil1.com\nevil2.com\n", status=200,
+    )
+    domains = fetchers.fetch_phishing_database()
+    assert domains == {"evil1.com", "evil2.com"}
+
+
+@responses.activate
+def test_fetch_openphish_falls_back_to_github_mirror():
+    responses.add(
+        responses.GET, "https://openphish.com/feed.txt",
+        status=503,
+    )
+    responses.add(
+        responses.GET,
+        "https://raw.githubusercontent.com/openphish/public_feed/master/feed.txt",
+        body="http://evil.com/login\n", status=200,
+    )
+    urls = fetchers.fetch_openphish()
+    assert urls == {"http://evil.com/login"}
+
+
+@responses.activate
 def test_fetch_all_sources_partial_failure():
     responses.add(
         responses.GET, "https://phish.co.za/latest/ALL-phishing-domains.lst",

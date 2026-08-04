@@ -20,7 +20,7 @@ size_categories:
 
 <br>
 
-> Catch phishing URLs before they catch you — 16 features, 19,954 URLs, balanced 50/50. Cross-verified from 496K phishing domains + Tranco top 10K. Automatically refreshed every 6 hours.
+> Catch phishing URLs before they catch you — 16 features, 19,954 URLs, balanced 50/50. Cross-verified from 496K phishing domains + Tranco top 10K. Automatically refreshed every 12 hours.
 
 Priorities: **Quality > Ease of Access > Quantity**
 
@@ -140,12 +140,12 @@ print(df.head())
 
 ## Auto-Update Pipeline
 
-PhishTrap is continuously refreshed by an automated pipeline. The dataset is rebuilt every 6 hours with fresh phishing URLs from live feeds. The full pipeline is open source at [github.com/instax-dutta/PhishTrap](https://github.com/instax-dutta/PhishTrap).
+PhishTrap is continuously refreshed by an automated pipeline. The dataset is rebuilt every 12 hours with fresh phishing URLs from live feeds. The full pipeline is open source at [github.com/instax-dutta/PhishTrap](https://github.com/instax-dutta/PhishTrap).
 
 ### Architecture
 
 ```
-GitHub Actions (cron, every 6h)
+GitHub Actions (cron, every 12h)
   │
   ├─ 1. Fetch phishing URLs  ── OpenPhish (15-min feed) + Phishing.Database + PhishStats
   ├─ 2. Fetch legit domains  ── Tranco top 10K

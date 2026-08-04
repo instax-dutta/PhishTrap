@@ -12,6 +12,7 @@ from phishtrap_pipeline.config import OUTPUT_DIR, get_hf_token
 from phishtrap_pipeline.fetchers import fetch_all_sources
 from phishtrap_pipeline.features import extract_url_features, extract_domain_from_url
 from phishtrap_pipeline.builder import (
+    DatasetValidationError,
     merge_with_existing,
     prune_expired,
     rebalance,
@@ -50,6 +51,13 @@ def download_existing_dataset():
     return None
 
 
+def _balance_ratio(df):
+    counts = df["label"].value_counts()
+    if len(counts) != 2:
+        return None
+    return float(counts.iloc[1] / counts.iloc[0])
+
+
 def main():
     args = parse_args()
     today = date.today().isoformat()
@@ -60,6 +68,17 @@ def main():
 
     logger.info("Step 1: Fetching data from sources...")
     source_data = fetch_all_sources()
+
+    phishing_sources_ok = any(
+        bool(source_data.get(k)) for k in ("phishing_database", "openphish", "phishstats")
+    )
+    legit_sources_ok = bool(source_data.get("tranco"))
+
+    if not phishing_sources_ok and not legit_sources_ok:
+        logger.error(
+            "All external sources unavailable this run - keeping previous dataset, skipping"
+        )
+        return
 
     phishing_rows = []
     for key in ("phishing_database", "openphish", "phishstats"):
@@ -77,9 +96,9 @@ def main():
     legit_rows = extract_url_features(legit_urls, label=0, source_tag="tranco")
     logger.info("Total legit rows: %d", len(legit_rows))
 
-    if not phishing_rows or not legit_rows:
-        logger.error("No data extracted from sources, aborting")
-        sys.exit(1)
+    if not phishing_rows and not legit_rows:
+        logger.error("No data extracted from any source - keeping previous dataset, skipping")
+        return
 
     logger.info("Step 2: Merging with existing dataset...")
     existing = None if args.force_full else download_existing_dataset()
@@ -92,11 +111,23 @@ def main():
         sys.exit(1)
 
     logger.info("Step 3: Pruning expired phishing URLs...")
-    merged = prune_expired(merged, today=today)
-    logger.info("After pruning: %d rows", len(merged))
+    if phishing_sources_ok:
+        merged = prune_expired(merged, today=today)
+        logger.info("After pruning: %d rows", len(merged))
+    else:
+        logger.warning(
+            "No fresh phishing evidence this run - skipping expiry pruning "
+            "so existing rows are not aged out during a source outage"
+        )
 
     logger.info("Step 4: Rebalancing...")
-    balanced = rebalance(merged, max_per_class=args.max_samples)
+    try:
+        balanced = rebalance(merged, max_per_class=args.max_samples)
+    except DatasetValidationError as e:
+        logger.error(
+            "Rebalance failed (%s) - keeping previous dataset, skipping", e,
+        )
+        return
     validate_dataset(balanced)
     logger.info("Balanced dataset: %d rows", len(balanced))
 
@@ -118,9 +149,7 @@ def main():
                                          "query_param_count", "path_length"]].columns),
         "class_distribution": balanced["label"].value_counts().to_dict(),
         "source_distribution": balanced["source"].value_counts().to_dict(),
-        "label_balance_ratio": float(
-            balanced["label"].value_counts().iloc[1] / balanced["label"].value_counts().iloc[0]
-        ),
+        "label_balance_ratio": _balance_ratio(balanced),
         "expiry_days": 60,
         "schema_version": 2,
     }

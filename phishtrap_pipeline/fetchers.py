@@ -1,3 +1,4 @@
+import random
 import time
 import logging
 
@@ -10,31 +11,56 @@ USER_AGENT = "PhishTrap-Pipeline/2.0"
 REQUEST_TIMEOUT = 30
 MAX_RETRIES = 3
 
+# Mirrors for sources that are known to 503 sporadically (esp. from
+# datacenter/CI IPs). The pipeline falls back to these before giving up.
+PHISHING_DATABASE_MIRRORS = [
+    "https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-domains-ACTIVE.txt",
+]
+OPENPHISH_MIRRORS = [
+    "https://raw.githubusercontent.com/openphish/public_feed/master/feed.txt",
+]
 
-def fetch_url(url, retries=MAX_RETRIES):
+
+def _backoff(attempt):
+    time.sleep(min(2 ** attempt + random.uniform(0, 0.5), 20))
+
+
+def fetch_url(url, retries=MAX_RETRIES, fallbacks=None):
+    """Fetch url with retries; on total failure try each fallback mirror.
+
+    Returns the text of the first source that responds successfully.
+    Raises the last exception only when every source is exhausted.
+    """
+    targets = [url] + list(fallbacks or [])
     last_exc = None
-    for attempt in range(retries):
-        try:
-            resp = requests.get(
-                url, timeout=REQUEST_TIMEOUT,
-                headers={"User-Agent": USER_AGENT},
-            )
-            resp.raise_for_status()
-            return resp.text
-        except requests.RequestException as e:
-            last_exc = e
-            logger.warning(
-                "Fetch failed (attempt %d/%d) for %s: %s",
-                attempt + 1, retries, url, e,
-            )
-            if attempt < retries - 1:
-                time.sleep(2 ** attempt)
-    logger.error("All %d retries exhausted for %s: %s", retries, url, last_exc)
+    for i, target in enumerate(targets):
+        for attempt in range(retries):
+            try:
+                resp = requests.get(
+                    target, timeout=REQUEST_TIMEOUT,
+                    headers={"User-Agent": USER_AGENT},
+                )
+                resp.raise_for_status()
+                return resp.text
+            except requests.RequestException as e:
+                last_exc = e
+                logger.warning(
+                    "Fetch failed (attempt %d/%d) for %s: %s",
+                    attempt + 1, retries, target, e,
+                )
+                if attempt < retries - 1:
+                    _backoff(attempt)
+        if i < len(targets) - 1:
+            logger.warning("Primary source %s exhausted, trying mirror %s", target, targets[i + 1])
+    logger.error("All %d source(s) exhausted for %s: %s", len(targets), url, last_exc)
     raise last_exc
 
 
 def fetch_phishing_database():
-    text = fetch_url("https://phish.co.za/latest/ALL-phishing-domains.lst")
+    text = fetch_url(
+        "https://phish.co.za/latest/ALL-phishing-domains.lst",
+        fallbacks=PHISHING_DATABASE_MIRRORS,
+    )
     domains = set()
     for line in text.strip().splitlines():
         line = line.strip().lower()
@@ -44,7 +70,7 @@ def fetch_phishing_database():
 
 
 def fetch_openphish():
-    text = fetch_url("https://openphish.com/feed.txt")
+    text = fetch_url("https://openphish.com/feed.txt", fallbacks=OPENPHISH_MIRRORS)
     urls = set()
     for line in text.strip().splitlines():
         line = line.strip().lower()

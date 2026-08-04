@@ -2,7 +2,7 @@ name: Refresh PhishTrap Dataset
 
 on:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '0 */12 * * *'
   workflow_dispatch:
     inputs:
       force_full:
@@ -26,6 +26,7 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -48,7 +49,25 @@ jobs:
             fi
             ARGS="$ARGS --max-samples ${{ github.event.inputs.max_samples }}"
           fi
-          python run_pipeline.py $ARGS
+
+          # Self-healing: retry the whole run on transient failures.
+          # The pipeline itself is deterministic now, but network/HF hiccups
+          # can still occur - a retry with a fresh process rides them out.
+          set +e
+          for attempt in 1 2 3; do
+            echo "::group::Pipeline attempt $attempt/3"
+            python run_pipeline.py $ARGS
+            rc=$?
+            echo "::endgroup::"
+            if [ $rc -eq 0 ]; then
+              break
+            fi
+            echo "Pipeline attempt $attempt failed (exit $rc)"
+            if [ $attempt -lt 3 ]; then
+              sleep 60
+            fi
+          done
+          exit $rc
 
       - name: Verify upload
         run: |

@@ -40,7 +40,16 @@ def canonicalize_url(url):
         return str(url).lower().strip()
 
 
-def validate_dataset(df):
+BALANCE_BAND = (0.9, 1.1)
+
+
+def validate_dataset(df, require_balance=True):
+    """Validate a dataset frame.
+
+    require_balance: enforce the strict class-balance band. Only meaningful on
+    the full dataset - small random splits are subject to sampling noise, so
+    balance is enforced there by stratified splitting instead (see split_dataset).
+    """
     errors = []
 
     if df.empty:
@@ -62,14 +71,12 @@ def validate_dataset(df):
         if col in df.columns and df[col].isnull().any():
             errors.append(f"Column {col} has null values")
 
-    if "label" in df.columns:
+    if require_balance and "label" in df.columns:
         counts = df["label"].value_counts()
         if len(counts) != 2:
             errors.append(f"Expected 2 classes, got {len(counts)}")
-        else:
-            ratio = counts[0] / counts[1]
-            if ratio < 0.9 or ratio > 1.1:
-                errors.append(f"Class imbalance: {counts.to_dict()} (ratio={ratio:.3f})")
+        elif not is_balanced(df, counts=counts):
+            errors.append(f"Class imbalance: {counts.to_dict()} (ratio={counts[0] / counts[1]:.3f})")
 
     if "canonical_url" in df.columns:
         dups = df["canonical_url"].duplicated().sum()
@@ -210,9 +217,57 @@ def rebalance(df, max_per_class=10000, today=None):
     return balanced
 
 
-def split_dataset(df):
-    train = df.sample(frac=0.7, random_state=SEED)
-    remaining = df.drop(train.index)
-    val = remaining.sample(frac=0.5, random_state=SEED)
-    test = remaining.drop(val.index)
-    return {"train": train, "val": val, "test": test}
+def is_balanced(df, counts=None, band=BALANCE_BAND):
+    """True if both classes are present and their ratio is within band."""
+    if counts is None:
+        counts = df["label"].value_counts()
+    if len(counts) != 2:
+        return False
+    small, large = sorted(int(v) for v in counts.tolist())
+    if small == 0 or large == 0:
+        return False
+    return band[0] <= small / large <= band[1]
+
+
+def _stratified_indices(frame, frac, seed):
+    """Indices of a per-class proportional sample (stratified by label)."""
+    taken = []
+    for _, group in frame.groupby("label"):
+        n = max(1, int(round(len(group) * frac)))
+        n = min(n, len(group))
+        taken.append(group.sample(n=n, random_state=seed).index)
+    return pd.Index(np.concatenate([t.values for t in taken]))
+
+
+def split_dataset(df, train_frac=0.7, val_frac=0.5, seed=SEED, max_attempts=10):
+    """Stratified train/val/test split.
+
+    Samples per class proportionally, so every split keeps the global class
+    ratio regardless of row order. This removes the dependence on set/row
+    iteration order that made the old split nondeterministic across runs.
+
+    max_attempts: defensive retry loop with bumped seeds; the stratification
+    makes failure effectively unreachable, but if it ever happens we fall back
+    to the last attempt rather than crash.
+    """
+    last_splits = None
+    for attempt in range(max_attempts):
+        rs = seed + attempt
+        train_idx = _stratified_indices(df, train_frac, rs)
+        remaining = df.drop(index=train_idx)
+        val_idx = _stratified_indices(remaining, val_frac, rs)
+        test = remaining.drop(index=val_idx)
+        splits = {
+            "train": df.loc[train_idx.sort_values()],
+            "val": remaining.loc[val_idx.sort_values()],
+            "test": test,
+        }
+        last_splits = splits
+        if all(is_balanced(s) for s in splits.values()):
+            return splits
+        logger.warning(
+            "Split attempt %d/%d produced imbalanced splits, retrying with seed %d",
+            attempt + 1, max_attempts, rs + 1,
+        )
+    logger.error("Could not produce balanced splits after %d attempts", max_attempts)
+    return last_splits

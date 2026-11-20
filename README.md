@@ -12,190 +12,121 @@ size_categories:
   - 10K<n<100K
 ---
 
+<img src="assets/banner.svg" alt="PhishTrap" width="100%">
+
 # PhishTrap
 
-<div align="center">
-  <img src="https://mirror.sdad.pro/racer_is_op_banaer_model_card_and_dataset_card.png" alt="RACER IS OP" width="100%">
-</div>
+A curated, reproducible dataset for phishing URL detection. Every URL is either a confirmed phishing domain from a verified threat feed or a top-ranked legitimate site from Tranco. Each row is described by 16 features computed from the URL string alone, so models trained here need no page fetches, DNS lookups, or third-party APIs at inference time.
 
-<br>
+The dataset is published on Hugging Face as [`saidutta69/PhishTrap`](https://huggingface.co/datasets/saidutta69/PhishTrap) and rebuilt from live feeds every 12 hours by a fully open-source pipeline.
 
-> Catch phishing URLs before they catch you — 16 features, 19,954 URLs, balanced 50/50. Cross-verified from 496K phishing domains + Tranco top 10K. Automatically refreshed every 12 hours.
+Last dataset refresh: 2026-11-20T00:00:00Z
 
-Priorities: **Quality > Ease of Access > Quantity**
+## Why this dataset exists
 
-**Build pipeline (open source):** [github.com/instax-dutta/PhishTrap](https://github.com/instax-dutta/PhishTrap) — see how every row is fetched, merged, deduplicated, validated and published.
+Most phishing datasets share the same problems: labels scraped from a single unverified list, train and test sets that overlap, features that require network calls at prediction time, and no way to tell how old a record is. PhishTrap is built around the opposite priorities, in this order: **quality, ease of access, quantity**.
 
----
+- **Cross-verified labels.** A phishing URL must appear in at least one reputable, actively maintained feed. Legitimate URLs come from the top 10,000 sites in Tranco, which aggregates CrUX, Cloudflare, Umbrella, and Majestic rankings.
+- **No leakage.** Canonical deduplication and a deterministic stratified split keep the same site out of multiple splits.
+- **Self-contained features.** All 16 features are derived from URL text, so the dataset transfers cleanly to a production classifier.
+- **Inspectable freshness.** Every row carries `first_seen`, `last_seen`, and `collected_at`, so consumers can filter by recency instead of trusting a single build date.
+- **Reproducible.** The build pipeline is open source and deterministic; the same inputs produce the same dataset.
 
-## Dataset Overview
+## Dataset at a glance
 
-PhishTrap is a curated phishing URL detection dataset built for reproducibility. Every URL is either a confirmed phishing domain (from PyFunceble-verified feeds) or a top-ranked legitimate domain (from Tranco). Features are extracted from URL structure alone — no third-party lookups, no page content.
-
-| Property | Value |
+| | |
 |---|---|
-| Total Samples | 19,954 |
-| Phishing URLs | 9,977 (50%) |
-| Legitimate URLs | 9,977 (50%) |
-| Features | 16 |
-| Train/Val/Test | 70/15/15 |
-| Formats | CSV, Parquet |
+| Size | About 19,950 URLs, split evenly between classes |
+| Features | 16 numerical URL-structure features |
+| Splits | 70% train / 15% validation / 15% test |
+| Formats | CSV and Parquet |
+| Label | `0` legitimate, `1` phishing |
 | License | MIT |
-
----
 
 ## Features
 
-### Original 6 — URL Structure
+All features come from the URL string. The first six describe basic structure; the remaining ten capture deeper signals commonly associated with obfuscation.
 
-| Feature | Description |
+| Feature | Meaning |
 |---|---|
-| `url_length` | Total URL character count |
-| `hyphen_count` | Number of hyphens in URL |
-| `digit_count` | Number of digits in URL |
-| `subdomain_count` | Number of subdomains |
-| `trusted_tld` | 1 if TLD is .com/.org/.net/.edu/.gov |
-| `protocol_exists` | 1 if http/https present |
-
-### Extended 10 — Deeper Signals
-
-| Feature | Description |
-|---|---|
-| `special_char_count` | Count of special characters (@, -, _, ., etc.) |
-| `entropy` | Shannon entropy of URL string |
+| `url_length` | Total character count of the URL |
+| `hyphen_count` | Number of hyphens |
+| `digit_count` | Number of digits |
+| `subdomain_count` | Subdomains below the registered domain |
+| `trusted_tld` | `1` for `.com`, `.org`, `.net`, `.edu`, `.gov`, `.mil`, `.int` |
+| `protocol_exists` | `1` when the URL includes `http://` or `https://` |
+| `special_char_count` | Count of characters such as `@`, `-`, `_`, `.`, `?` |
+| `entropy` | Shannon entropy of the URL string |
 | `path_depth` | Number of path segments |
-| `domain_length` | Length of domain portion |
-| `is_domain_ip` | 1 if domain is an IP address |
-| `has_at_symbol` | 1 if @ present in URL |
-| `has_double_slash_redirect` | 1 if // appears after protocol |
-| `tld_length` | Length of top-level domain |
+| `domain_length` | Length of the hostname |
+| `is_domain_ip` | `1` when the hostname is a literal IPv4 address |
+| `has_at_symbol` | `1` when `@` appears in the URL |
+| `has_double_slash_redirect` | `1` when `//` appears after the scheme |
+| `tld_length` | Length of the top-level domain |
 | `query_param_count` | Number of query parameters |
-| `path_length` | Length of path portion |
+| `path_length` | Length of the path component |
 
----
+## Data sources and provenance
 
-## Data Sources
+Phishing candidates come from three feeds: [Phishing.Database](https://www.phishingdatabase.net/), [OpenPhish](https://openphish.com/), and [PhishStats](https://phishstats.info/). The first is PyFunceble-tested daily, OpenPhish refreshes every 15 minutes, and PhishStats contributes additional recent URLs. A URL only needs to appear in one feed to be included, and the `source` column records every feed that reported it, for example `openphish+phishing_database`.
 
-### Phishing URLs
+Legitimate URLs come from the Tranco top 10,000 list. That set is filtered against known phishing domains before inclusion, so a compromised or misclassified site cannot land in the negative class.
 
-| Source | Domains | Verification |
-|---|---|---|
-| Phishing.Database | 496,576 | PyFunceble-tested daily (MIT) |
-| OpenPhish | 300+ (latest feed) | 15-min update cycle |
+Every row also records when it was first and last observed. If a Tranco domain later appears in a phishing feed, the phishing label wins and the conflict is logged. Phishing URLs left unconfirmed for 60 days are pruned; legitimate domains never expire because the Tranco top 10,000 is stable by design.
 
-Phishing domains appear in at least one verified source. Domains are deduplicated across sources.
+## Using the dataset
 
-### Legitimate URLs
-
-| Source | Domains | Why |
-|---|---|---|
-| Tranco top 10K | 10,000 | Aggregates CrUX + Cloudflare + Umbrella + Majestic |
-
-Legitimate domains are filtered against the phishing set to remove any overlap.
-
----
-
-## Label
-
-- `0` = legitimate
-- `1` = phishing
-
----
-
-## Usage
-
-### With Hugging Face Datasets
+With Hugging Face Datasets:
 
 ```python
 from datasets import load_dataset
-
-dataset = load_dataset("saidutta69/PhishTrap")
-train = dataset["train"]
-val = dataset["val"]
-test = dataset["test"]
-
-# Train a classifier
 from sklearn.ensemble import RandomForestClassifier
 
-X_train = train.select_columns([c for c in train.column_names if c not in ("url", "label", "source")])
-y_train = train["label"]
-X_test = test.select_columns([c for c in test.column_names if c not in ("url", "label", "source")])
-y_test = test["label"]
+ds = load_dataset("saidutta69/PhishTrap")
+features = [c for c in ds["train"].column_names
+            if c not in ("url", "label", "source")]
 
 clf = RandomForestClassifier(n_estimators=100, random_state=42)
-clf.fit(X_train, y_train)
-print(f"Accuracy: {clf.score(X_test, y_test):.4f}")
+clf.fit(ds["train"][features], ds["train"]["label"])
+print(f"Test accuracy: {clf.score(ds['test'][features], ds['test']['label']):.4f}")
 ```
 
-### With Pandas
+With pandas:
 
 ```python
 import pandas as pd
 
 df = pd.read_csv("hf://datasets/saidutta69/PhishTrap/data/phishtrap_full.csv")
-print(df.head())
 ```
 
----
+## How updates work
 
-## Auto-Update Pipeline
-
-PhishTrap is continuously refreshed by an automated pipeline. The dataset is rebuilt every 12 hours with fresh phishing URLs from live feeds. The full pipeline is open source at [github.com/instax-dutta/PhishTrap](https://github.com/instax-dutta/PhishTrap).
-
-### Architecture
+A GitHub Actions workflow runs every 12 hours and moves the data through these stages in order:
 
 ```
-GitHub Actions (cron, every 12h)
-  │
-  ├─ 1. Fetch phishing URLs  ── OpenPhish (15-min feed) + Phishing.Database + PhishStats
-  ├─ 2. Fetch legit domains  ── Tranco top 10K
-  ├─ 3. Merge with existing   ── canonical dedup (scheme/port/trailing-slash agnostic)
-  ├─ 4. Prune expired         ── phishing URLs unconfirmed > 60 days are dropped
-  ├─ 5. Extract 16 features   ── same feature set across all versions
-  ├─ 6. Rebalance 50/50       ── stratified sampling
-  ├─ 7. Split 70/15/15        ── train/val/test
-  └─ 8. Validate + upload     ── pre-upload gates + post-upload verification → Hugging Face
+fetch live feeds -> merge with existing data -> prune stale evidence
+    -> rebalance to 50/50 -> stratified split -> upload -> verify
 ```
 
-### Quality guarantees
+Each stage is defensive. Failed fetches retry with exponential backoff and fall back to mirror hosts; a source that is entirely unavailable is skipped rather than allowed to empty the dataset. Merging uses a canonical URL key that ignores scheme, default port, and trailing slash, so the same site reported in different formats collapses to one row. Before anything is published, every split is checked for missing features, non-finite values, duplicate URLs, and class balance. After upload, the published files are downloaded and validated again.
 
-- **Freshness tracking** — every row carries `first_seen`, `last_seen`, and `collected_at` timestamps; consumers can tell how current each URL is
-- **Canonical dedup** — `http://evil.com`, `https://evil.com/`, and `http://evil.com:80` collapse into one row via the `canonical_url` column
-- **New evidence wins** — if a legitimate Tranco domain later appears in phishing feeds (e.g. it got compromised), the phishing label overrides it; label conflicts are logged
-- **Expiry pruning** — phishing URLs unconfirmed for more than 60 days are removed automatically; legitimate domains never expire (Tranco top-10K is stable by design)
-- **Provenance preserved** — the `source` column records every feed that reported a URL (e.g. `openphish+phishing_database`)
-- **Source resilience** — 3 retries with exponential backoff per fetch; an unreachable source is skipped, never fatal
-- **Pre-upload validation** — every split is checked for missing features, NaN/inf values, duplicates, and class balance before anything is uploaded
-- **Post-upload verification** — after pushing, the pipeline downloads the uploaded files and re-validates them
-- **Build metadata** — `data/dataset_info.json` records build ID, date, class/source distributions, and schema version
-- **No partial state** — the full `data/` folder is replaced atomically per run
+The result is a dataset that keeps itself current while staying auditable at every step.
 
-### Running the pipeline
+## Running the pipeline yourself
 
 ```bash
-export HF_TOKEN=hf_xxx          # required, from HF account settings
-python run_pipeline.py          # incremental refresh
-python run_pipeline.py --force-full    # rebuild from scratch
-python run_pipeline.py --max-samples 20000   # bigger dataset
-python run_pipeline.py --dry-run       # fetch/merge/prune/rebalance, no upload
+pip install -r requirements.txt
+export HF_TOKEN=hf_...        # needed to upload; not needed for --dry-run
+
+python run_pipeline.py --dry-run               # fetch, merge, rebalance, no upload
+python run_pipeline.py                          # incremental refresh
+python run_pipeline.py --force-full             # rebuild from scratch
+python run_pipeline.py --max-samples 20000      # larger balanced dataset
 ```
 
-### Manual trigger
+The workflow lives in [`.github/workflows/refresh-phishtrap.yml`](.github/workflows/refresh-phishtrap.yml) and the implementation in [`phishtrap_pipeline/`](phishtrap_pipeline/). Design notes and build plans are under [`docs/superpowers/`](docs/superpowers/).
 
-The GitHub Actions workflow `Refresh PhishTrap Dataset` can also be triggered manually (workflow_dispatch) with optional `force_full` and `max_samples` inputs.
-
----
-
-## Why PhishTrap?
-
-Most phishing datasets throw URLs at you and call it a day. PhishTrap is different:
-
-- **Cross-verified sources** — Every domain earns its place from reputable feeds
-- **No data leakage** — Separate train/val/test splits with no overlap
-- **Clean features** — 16 URL-based features, zero third-party API calls needed for inference
-- **Reproducible** — Methodology is fully documented; re-run the pipeline anytime
-
----
+The original single-file builder, [`build_phishtrap.py`](build_phishtrap.py), is kept for reference, but the package-based pipeline above is the supported path.
 
 ## Citation
 
@@ -210,6 +141,6 @@ Most phishing datasets throw URLs at you and call it a day. PhishTrap is differe
 }
 ```
 
----
+## License
 
-Built with Phishing.Database, OpenPhish, and Tranco. MIT licensed.
+MIT. Built with Phishing.Database, OpenPhish, PhishStats, and Tranco.

@@ -41,6 +41,8 @@ Update parent docs when parent-level structure, ownership, workflow, or child in
 - The refresh cadence is once daily at 00:00 UTC, owned by `.github/workflows/refresh-phishtrap.yml`.
 - No GCP. Builds run on GitHub Actions; heavy local batch work belongs on pelican.
 - README.md carries the machine-readable line `Last dataset refresh: <UTC ISO timestamp>` at column 0. The workflow rewrites it on every run to keep the repo active. Do not reformat or indent it.
+- README.md is the GitHub code and pipeline readme. `hf-card.md` is the source of the Hugging Face dataset card. They are intentionally separate: keep GitHub focused on code, the HF card focused on dataset consumers, and never sync them automatically.
+- `hf-card.md` is published to the HF dataset repo through the Hub commit API. The pipeline itself only uploads the `data/` folder.
 
 ## Hierarchy
 
@@ -92,4 +94,4 @@ When the user requests a durable behavior change, record it here or in the relev
 - `phishtrap_pipeline/AGENTS.md` - fetch, feature, builder, uploader, and CLI contracts
 - `tests/AGENTS.md` - test layout and verification command
 
-Root owns README.md, `run_pipeline.py`, `build_phishtrap.py` (legacy), `requirements.txt`, and `assets/banner.svg`.
+Root owns README.md, `hf-card.md`, `run_pipeline.py`, `build_phishtrap.py` (legacy), `requirements.txt`, and `assets/banner.svg`.

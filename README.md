@@ -124,7 +124,7 @@ python run_pipeline.py --force-full             # rebuild from scratch
 python run_pipeline.py --max-samples 20000      # larger balanced dataset
 ```
 
-The workflow lives in [`.github/workflows/refresh-phishtrap.yml`](.github/workflows/refresh-phishtrap.yml) and the implementation in [`phishtrap_pipeline/`](phishtrap_pipeline/). Design notes and build plans are under [`docs/superpowers/`](docs/superpowers/).
+The workflow lives in [`.github/workflows/refresh-phishtrap.yml`](.github/workflows/refresh-phishtrap.yml) and the implementation in [`phishtrap_pipeline/`](phishtrap_pipeline/). Repo-level contracts and work guidance are in the `AGENTS.md` DOX tree.
 
 The original single-file builder, [`build_phishtrap.py`](build_phishtrap.py), is kept for reference, but the package-based pipeline above is the supported path.
 

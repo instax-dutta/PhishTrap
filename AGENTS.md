@@ -38,7 +38,7 @@ Update parent docs when parent-level structure, ownership, workflow, or child in
 
 - The Hugging Face dataset is `saidutta69/PhishTrap`; the `main` branch of this repo is the source of truth for the build pipeline.
 - `run_pipeline.py` calling into `phishtrap_pipeline/` is the supported build path. `build_phishtrap.py` is legacy reference only.
-- The refresh cadence is every 12 hours, owned by `.github/workflows/refresh-phishtrap.yml`.
+- The refresh cadence is once daily at 00:00 UTC, owned by `.github/workflows/refresh-phishtrap.yml`.
 - No GCP. Builds run on GitHub Actions; heavy local batch work belongs on pelican.
 - README.md carries the machine-readable line `Last dataset refresh: <UTC ISO timestamp>` at column 0. The workflow rewrites it on every run to keep the repo active. Do not reformat or indent it.
 

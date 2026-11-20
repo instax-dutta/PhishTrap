@@ -18,7 +18,7 @@ size_categories:
 
 A curated, reproducible dataset for phishing URL detection. Every URL is either a confirmed phishing domain from a verified threat feed or a top-ranked legitimate site from Tranco. Each row is described by 16 features computed from the URL string alone, so models trained here need no page fetches, DNS lookups, or third-party APIs at inference time.
 
-The dataset is published on Hugging Face as [`saidutta69/PhishTrap`](https://huggingface.co/datasets/saidutta69/PhishTrap) and rebuilt from live feeds every 12 hours by a fully open-source pipeline.
+The dataset is published on Hugging Face as [`saidutta69/PhishTrap`](https://huggingface.co/datasets/saidutta69/PhishTrap) and rebuilt from live feeds once a day by a fully open-source pipeline.
 
 Last dataset refresh: 2026-11-20T15:58:40Z
 
@@ -101,7 +101,7 @@ df = pd.read_csv("hf://datasets/saidutta69/PhishTrap/data/phishtrap_full.csv")
 
 ## How updates work
 
-A GitHub Actions workflow runs every 12 hours and moves the data through these stages in order:
+A GitHub Actions workflow runs once a day and moves the data through these stages in order:
 
 ```
 fetch live feeds -> merge with existing data -> prune stale evidence

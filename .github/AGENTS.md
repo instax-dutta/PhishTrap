@@ -8,7 +8,7 @@ GitHub Actions automation for refreshing the Hugging Face dataset.
 
 ## Local Contracts
 
-- Cron `0 */12 * * *` fires at 00:00 and 12:00 UTC; `workflow_dispatch` accepts `force_full` and `max_samples`.
+- Cron `0 0 * * *` fires once daily at 00:00 UTC; `workflow_dispatch` accepts `force_full` and `max_samples`.
 - The only secret is `HF_TOKEN`.
 - The job needs `contents: write` for the final step that rewrites `Last dataset refresh:` in README.md. That commit is what keeps the repo active and prevents GitHub from disabling the cron after 60 days of inactivity.
 - The concurrency group serializes runs; do not set `cancel-in-progress: true`.

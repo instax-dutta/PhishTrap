@@ -42,7 +42,7 @@
   <text x="800" y="248" text-anchor="middle" font-family="'Trebuchet MS','Segoe UI',Arial,sans-serif"
         font-size="18" letter-spacing="7" fill="#8ab4d8">PHISHING URL DETECTION DATASET</text>
   <text x="800" y="282" text-anchor="middle" font-family="'Trebuchet MS','Segoe UI',Arial,sans-serif"
-        font-size="14" letter-spacing="3" fill="#6f97b8">16 FEATURES / 50-50 BALANCED / 12H REFRESH</text>
+        font-size="14" letter-spacing="3" fill="#6f97b8">16 FEATURES / 50-50 BALANCED / DAILY REFRESH</text>
 
   <circle cx="1350" cy="195" r="132" fill="none" stroke="#22d3ee" stroke-opacity="0.10" stroke-width="2"/>
   <circle cx="1350" cy="63" r="4" fill="#34d399"/>

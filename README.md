@@ -18,7 +18,7 @@ size_categories:
 
 A curated, reproducible dataset for phishing URL detection. Every URL is either a confirmed phishing domain from a verified threat feed or a top-ranked legitimate site from Tranco. Each row is described by 16 features computed from the URL string alone, so models trained here need no page fetches, DNS lookups, or third-party APIs at inference time.
 
-The dataset is published on Hugging Face as [`saidutta69/PhishTrap`](https://huggingface.co/datasets/saidutta69/PhishTrap) and rebuilt from live feeds once a day by a fully open-source pipeline.
+The dataset is published on Hugging Face as [`saidutta69/PhishTrap`](https://huggingface.co/datasets/saidutta69/PhishTrap) and rebuilt from live feeds once a day by a fully open-source pipeline. The build pipeline is at [github.com/instax-dutta/PhishTrap](https://github.com/instax-dutta/PhishTrap).
 
 Last dataset refresh: 2026-11-20T15:58:40Z
 
@@ -124,9 +124,9 @@ python run_pipeline.py --force-full             # rebuild from scratch
 python run_pipeline.py --max-samples 20000      # larger balanced dataset
 ```
 
-The workflow lives in [`.github/workflows/refresh-phishtrap.yml`](.github/workflows/refresh-phishtrap.yml) and the implementation in [`phishtrap_pipeline/`](phishtrap_pipeline/). Repo-level contracts and work guidance are in the `AGENTS.md` DOX tree.
+The workflow lives in [`.github/workflows/refresh-phishtrap.yml`](https://github.com/instax-dutta/PhishTrap/blob/main/.github/workflows/refresh-phishtrap.yml) and the implementation in [`phishtrap_pipeline/`](https://github.com/instax-dutta/PhishTrap/tree/main/phishtrap_pipeline). Repo-level contracts and work guidance are in the `AGENTS.md` DOX tree.
 
-The original single-file builder, [`build_phishtrap.py`](build_phishtrap.py), is kept for reference, but the package-based pipeline above is the supported path.
+The original single-file builder, [`build_phishtrap.py`](https://github.com/instax-dutta/PhishTrap/blob/main/build_phishtrap.py), is kept for reference, but the package-based pipeline above is the supported path.
 
 ## Citation
 

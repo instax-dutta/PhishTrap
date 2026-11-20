@@ -20,7 +20,7 @@ A curated, reproducible dataset for phishing URL detection. Every URL is either 
 
 The dataset is published on Hugging Face as [`saidutta69/PhishTrap`](https://huggingface.co/datasets/saidutta69/PhishTrap) and rebuilt from live feeds every 12 hours by a fully open-source pipeline.
 
-Last dataset refresh: 2026-11-20T00:00:00Z
+Last dataset refresh: 2026-11-20T15:58:40Z
 
 ## Why this dataset exists
 

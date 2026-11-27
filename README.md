@@ -4,7 +4,7 @@
 
 PhishTrap is a phishing URL detection dataset published on Hugging Face at `saidutta69/PhishTrap`. This repo holds the pipeline that builds and refreshes it: fetch from live threat feeds, extract 16 URL features, merge with the existing data, rebalance, split, validate, and upload.
 
-Last dataset refresh: 2026-11-26T07:05:20Z
+Last dataset refresh: 2026-11-27T07:00:42Z
 
 For feature definitions, data sources, splits, and usage examples, see the [dataset card on Hugging Face](https://huggingface.co/datasets/saidutta69/PhishTrap).
 
